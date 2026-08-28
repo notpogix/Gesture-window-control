@@ -1,5 +1,7 @@
 """
 Finds and drags real OS windows on Windows, using pygetwindow + pywin32.
+Once a window is grabbed, it stays locked to that window until an explicit
+release — fast cursor movement during a drag will never switch targets.
 """
 
 import pygetwindow as gw
@@ -14,23 +16,24 @@ class WindowManager:
 
     @staticmethod
     def _window_under_point(x, y):
-        """Return the top-level window handle under screen point (x, y)."""
         hwnd = win32gui.WindowFromPoint((int(x), int(y)))
         if hwnd == 0:
             return None
-        # Walk up to the top-level ancestor (WindowFromPoint can return a child control)
         root = win32gui.GetAncestor(hwnd, 2)  # GA_ROOT = 2
         return root if root else hwnd
 
     def try_grab(self, screen_x, screen_y):
-        """Call on pinch_start. Finds the window under the cursor and grabs it."""
+        """Call ONLY on pinch_start. Ignored if already dragging something."""
+        if self.grabbed_window is not None:
+            return True  # already locked onto a window, don't re-grab
+
         hwnd = self._window_under_point(screen_x, screen_y)
         if not hwnd:
             return False
 
         title = win32gui.GetWindowText(hwnd)
         if not title:
-            return False  # skip windows with no title (likely desktop/taskbar internals)
+            return False
 
         try:
             win = gw.Win32Window(hwnd)
@@ -43,7 +46,7 @@ class WindowManager:
         return True
 
     def drag(self, screen_x, screen_y):
-        """Call on pinch_hold. Moves the grabbed window to follow the cursor."""
+        """Call on pinch_hold. Only moves the already-locked window."""
         if self.grabbed_window is None:
             return
         try:
@@ -54,7 +57,7 @@ class WindowManager:
             self.grabbed_window = None
 
     def release(self):
-        """Call on pinch_end."""
+        """Call on pinch_end (or when hand is lost)."""
         self.grabbed_window = None
 
     @property

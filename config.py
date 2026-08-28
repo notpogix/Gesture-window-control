@@ -19,7 +19,7 @@ FRAME_MARGIN = 60
 SMOOTHING = 0.35
 
 # --- Pinch / gesture detection (window dragging) ---
-PINCH_THRESHOLD = 0.05
+PINCH_THRESHOLD = 0.030
 
 # --- Click gestures ---
 # A finger counts as "bent" when its tip is this much closer to the wrist
