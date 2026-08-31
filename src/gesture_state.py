@@ -1,51 +1,39 @@
 """
-Tracks pinch state (thumb tip <-> index tip distance) as a simple
-state machine: IDLE -> PINCHING -> IDLE.
-
-Uses a small frame-confirmation buffer so a single noisy frame during
-fast hand motion can't falsely trigger a release mid-drag.
+Tracks fist state (open hand vs. closed fist) as a simple state machine:
+IDLE -> GRABBING -> IDLE. Uses a frame-confirmation buffer so a single
+noisy frame during fast hand motion can't falsely trigger a release.
 """
 
-import math
 import config
 
 
 class GestureState:
     def __init__(self):
-        self.is_pinching = False
+        self.is_fist = False
         self._pending_state = None
         self._pending_count = 0
-        self.CONFIRM_FRAMES = 2  # frames a state must hold before it's accepted
 
-    @staticmethod
-    def _distance(p1, p2):
-        return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
-
-    def update(self, thumb_norm, index_norm):
+    def update(self, curled_finger_count: int):
         """
-        Returns one of: "pinch_start", "pinch_hold", "pinch_end", "idle"
+        Returns one of: "fist_start", "fist_hold", "fist_end", "idle"
         """
-        dist = self._distance(thumb_norm, index_norm)
-        raw_pinching = dist < config.PINCH_THRESHOLD
+        raw_fist = curled_finger_count >= config.FIST_FINGER_COUNT
 
-        if raw_pinching == self.is_pinching:
-            # Already in this state — no confirmation needed, reset buffer
+        if raw_fist == self.is_fist:
             self._pending_state = None
             self._pending_count = 0
-            return "pinch_hold" if self.is_pinching else "idle"
+            return "fist_hold" if self.is_fist else "idle"
 
-        # Raw reading disagrees with current state — require confirmation
-        if self._pending_state == raw_pinching:
+        if self._pending_state == raw_fist:
             self._pending_count += 1
         else:
-            self._pending_state = raw_pinching
+            self._pending_state = raw_fist
             self._pending_count = 1
 
-        if self._pending_count >= self.CONFIRM_FRAMES:
-            self.is_pinching = raw_pinching
+        if self._pending_count >= config.CONFIRM_FRAMES:
+            self.is_fist = raw_fist
             self._pending_state = None
             self._pending_count = 0
-            return "pinch_start" if self.is_pinching else "pinch_end"
+            return "fist_start" if self.is_fist else "fist_end"
 
-        # Not yet confirmed — keep reporting the current stable state
-        return "pinch_hold" if self.is_pinching else "idle"
+        return "fist_hold" if self.is_fist else "idle"

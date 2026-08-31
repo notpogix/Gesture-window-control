@@ -2,11 +2,16 @@
 Gesture Cursor — control your mouse and drag windows using hand gestures
 tracked through your webcam.
 
+Open hand + index finger -> move cursor
+Make a fist over a window -> grab and drag it
+Open hand again -> release
+
 Run: python main.py
 Quit: press Ctrl+C in the terminal.
 """
 
 import cv2
+import time
 import config
 from src.hand_tracker import HandTracker
 from src.cursor_controller import CursorController
@@ -19,7 +24,7 @@ def main():
     cap = cv2.VideoCapture(config.CAMERA_INDEX, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
-    cap.set(cv2.CAP_PROP_FPS, 30)
+    cap.set(cv2.CAP_PROP_FPS, config.TARGET_FPS)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     if not cap.isOpened():
@@ -32,10 +37,14 @@ def main():
     windows = WindowManager()
     overlay = StatusOverlay() if config.SHOW_OVERLAY else None
 
+    frame_budget = 1.0 / config.TARGET_FPS
+
     print("Gesture Cursor running. Press Ctrl+C in this terminal to quit.")
 
     try:
         while True:
+            loop_start = time.perf_counter()
+
             success, frame = cap.read()
             if not success:
                 print("Failed to read from webcam.")
@@ -52,24 +61,23 @@ def main():
                 if config.SHOW_CAMERA_WINDOW:
                     tracker.draw_landmarks(frame, hand_landmarks)
 
-                index_norm = tracker.get_landmark_normalized(
-                    hand_landmarks, tracker.INDEX_FINGER_TIP
-                )
-                thumb_norm = tracker.get_landmark_normalized(
-                    hand_landmarks, tracker.THUMB_TIP
+                curled_count = tracker.count_curled_fingers(hand_landmarks)
+                event = gesture.update(curled_count)
+
+                track_x, track_y = tracker.get_landmark_normalized(
+                    hand_landmarks, tracker.INDEX_FINGER_MCP
                 )
 
                 screen_x, screen_y = cursor.map_to_screen(
-                    index_norm[0], index_norm[1], frame_w, frame_h
+                    track_x, track_y, frame_w, frame_h
                 )
                 final_x, final_y = cursor.move_to(screen_x, screen_y)
 
-                event = gesture.update(thumb_norm, index_norm)
-                if event == "pinch_start":
+                if event == "fist_start":
                     windows.try_grab(final_x, final_y)
-                elif event == "pinch_hold":
+                elif event == "fist_hold":
                     windows.drag(final_x, final_y)
-                elif event == "pinch_end":
+                elif event == "fist_end":
                     windows.release()
 
                 if overlay:
@@ -86,6 +94,13 @@ def main():
 
             if overlay:
                 overlay.pump()
+
+            # Frame pacing: sleep off any leftover time in the budget so the
+            # loop runs at a stable, consistent rate instead of racing ahead
+            elapsed = time.perf_counter() - loop_start
+            sleep_time = frame_budget - elapsed
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     except KeyboardInterrupt:
         pass

@@ -46,10 +46,6 @@ class HandTracker:
         return lm.x, lm.y
 
     def is_finger_bent(self, hand_landmarks, tip_idx, pip_idx):
-        """
-        A finger is 'bent' when its tip is closer to the wrist than its
-        PIP joint is — i.e. curled inward, independent of hand rotation.
-        """
         wrist = self.get_landmark_normalized(hand_landmarks, self.WRIST)
         tip = self.get_landmark_normalized(hand_landmarks, tip_idx)
         pip = self.get_landmark_normalized(hand_landmarks, pip_idx)
@@ -59,13 +55,27 @@ class HandTracker:
 
         tip_to_wrist = dist(tip, wrist)
         pip_to_wrist = dist(pip, wrist)
-
         return (pip_to_wrist - tip_to_wrist) > config.BEND_THRESHOLD
+
+    def count_curled_fingers(self, hand_landmarks):
+        """Counts how many of index/middle/ring/pinky are curled (fist check)."""
+        pairs = [
+            (self.INDEX_FINGER_TIP, self.INDEX_FINGER_PIP),
+            (self.MIDDLE_FINGER_TIP, self.MIDDLE_FINGER_PIP),
+            (self.RING_FINGER_TIP, self.RING_FINGER_PIP),
+            (self.PINKY_TIP, self.PINKY_PIP),
+        ]
+        return sum(1 for tip, pip in pairs if self.is_finger_bent(hand_landmarks, tip, pip))
 
     # Landmark indices (MediaPipe hand model)
     WRIST = 0
     THUMB_TIP = 4
+    INDEX_FINGER_MCP = 5
     INDEX_FINGER_TIP = 8
     INDEX_FINGER_PIP = 6
     MIDDLE_FINGER_TIP = 12
     MIDDLE_FINGER_PIP = 10
+    RING_FINGER_TIP = 16
+    RING_FINGER_PIP = 14
+    PINKY_TIP = 20
+    PINKY_PIP = 18

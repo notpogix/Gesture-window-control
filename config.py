@@ -7,6 +7,7 @@ Tune these values to adjust sensitivity and behavior.
 CAMERA_INDEX = 0
 FRAME_WIDTH = 424
 FRAME_HEIGHT = 240
+TARGET_FPS = 60
 
 # --- Hand tracking ---
 MAX_NUM_HANDS = 1
@@ -16,24 +17,17 @@ MODEL_COMPLEXITY = 0
 
 # --- Cursor mapping ---
 FRAME_MARGIN = 60
-SMOOTHING = 0.35
+SMOOTHING = 0.6              # higher = smoother, slightly more lag
+DEAD_ZONE_PX = 2             # ignore cursor moves smaller than this (kills micro-jitter)
 
-# --- Pinch / gesture detection (window dragging) ---
-PINCH_THRESHOLD = 0.030
-
-# --- Click gestures ---
-# A finger counts as "bent" when its tip is this much closer to the wrist
-# than its PIP joint (normalized 0-1 distance). Higher = requires a more
-# obvious bend.
+# --- Fist / gesture detection (window dragging) ---
 BEND_THRESHOLD = 0.04
+FIST_FINGER_COUNT = 4
+CONFIRM_FRAMES = 3
 
-# Max time (seconds) between two left-click bends to count as a double click.
-DOUBLE_CLICK_WINDOW = 0.35
-
-# Minimum time (seconds) a finger must stay straight before it can trigger
-# another click — prevents accidental rapid-fire clicking.
-CLICK_COOLDOWN = 0.25
+# --- Window drag optimization ---
+MIN_DRAG_DELTA_PX = 2        # skip redundant window moves smaller than this
 
 # --- UI ---
 SHOW_CAMERA_WINDOW = False
-SHOW_OVERLAY = True          # can also be toggled live with the 'o' hotkey (see README)
+SHOW_OVERLAY = True

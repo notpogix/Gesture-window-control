@@ -1,11 +1,15 @@
 """
-Maps hand position to system cursor position, with smoothing.
+Maps hand position to system cursor position, with smoothing and a
+small dead-zone to eliminate micro-jitter from landmark noise.
 """
 
 import pyautogui
 import config
 
-pyautogui.FAILSAFE = False  # prevent PyAutoGUI's corner-abort during fast hand motion
+pyautogui.FAILSAFE = False
+pyautogui.MINIMUM_DURATION = 0
+pyautogui.MINIMUM_SLEEP = 0
+pyautogui.PAUSE = 0  # remove PyAutoGUI's default 0.1s delay after every call
 
 
 class CursorController:
@@ -14,19 +18,12 @@ class CursorController:
         self.prev_x, self.prev_y = self.screen_w // 2, self.screen_h // 2
 
     def map_to_screen(self, norm_x, norm_y, frame_w, frame_h):
-        """
-        Convert normalized hand landmark (0-1) to screen pixel coordinates,
-        applying the frame margin so full screen reach doesn't require
-        reaching the camera frame edges.
-        """
         px = norm_x * frame_w
         py = norm_y * frame_h
 
         margin = config.FRAME_MARGIN
-        usable_w = frame_w - 2 * margin
-        usable_h = frame_h - 2 * margin
-        usable_w = max(usable_w, 1)
-        usable_h = max(usable_h, 1)
+        usable_w = max(frame_w - 2 * margin, 1)
+        usable_h = max(frame_h - 2 * margin, 1)
 
         rel_x = (px - margin) / usable_w
         rel_y = (py - margin) / usable_h
@@ -42,6 +39,11 @@ class CursorController:
         final_x = self.prev_x + (screen_x - self.prev_x) * (1 - smooth)
         final_y = self.prev_y + (screen_y - self.prev_y) * (1 - smooth)
 
-        pyautogui.moveTo(final_x, final_y)
+        # Dead zone: skip the OS call entirely for sub-threshold movement
+        if abs(final_x - self.prev_x) < config.DEAD_ZONE_PX and \
+           abs(final_y - self.prev_y) < config.DEAD_ZONE_PX:
+            return self.prev_x, self.prev_y
+
+        pyautogui.moveTo(final_x, final_y, _pause=False)
         self.prev_x, self.prev_y = final_x, final_y
         return final_x, final_y
